@@ -1,0 +1,106 @@
+6. Code to Represent the Data Model
+
+// Create Users
+CREATE (:User {id: 1, name: 'Alice', age: 25, gender: 'Female'}),
+       (:User {id: 2, name: 'Bob', age: 30, gender: 'Male'}),
+       (:User {id: 3, name: 'Charlie', age: 28, gender: 'Male'});
+
+// Create Interests
+CREATE (:Interest {id: 1, name: 'Hiking', category: 'Outdoor', popularity: 85}),
+       (:Interest {id: 2, name: 'Gaming', category: 'Indoor', popularity: 92}),
+       (:Interest {id: 3, name: 'Cooking', category: 'Lifestyle', popularity: 75});
+
+// Create Locations
+CREATE (:Location {id: 1, name: 'New York', region: 'NY', population: 8000000}),
+       (:Location {id: 2, name: 'Los Angeles', region: 'CA', population: 4000000}),
+       (:Location {id: 3, name: 'Chicago', region: 'IL', population: 2700000});
+
+// Create Posts
+CREATE (:Post {id: 1, content: 'Loving the mountain trail!', timestamp: '2025-04-20T10:00:00', likes: 50}),
+       (:Post {id: 2, content: 'New recipe success!', timestamp: '2025-04-21T12:30:00', likes: 75}),
+       (:Post {id: 3, content: 'Just hit level 50!', timestamp: '2025-04-22T15:45:00', likes: 90});
+
+// Create Events
+CREATE (:Event {id: 1, name: 'Tech Meetup', date: '2025-05-10', type: 'Networking'}),
+       (:Event {id: 2, name: 'Food Fest', date: '2025-06-15', type: 'Cultural'}),
+       (:Event {id: 3, name: 'Hiking Trip', date: '2025-07-20', type: 'Adventure'});
+
+// Relationships
+MATCH (a:User {id: 1}), (b:User {id: 2})
+CREATE (a)-[:FRIENDS_WITH {since: 2023, interactionCount: 120}]->(b);
+
+MATCH (a:User {id: 2}), (b:User {id: 3})
+CREATE (a)-[:FRIENDS_WITH {since: 2024, interactionCount: 80}]->(b);
+
+MATCH (a:User {id: 1}), (i:Interest {id: 1})
+CREATE (a)-[:INTERESTED_IN {since: 2021, level: 5}]->(i);
+
+MATCH (b:User {id: 3}), (i:Interest {id: 2})
+CREATE (b)-[:INTERESTED_IN {since: 2022, level: 4}]->(i);
+
+MATCH (a:User {id: 1}), (l:Location {id: 1})
+CREATE (a)-[:LOCATED_IN {since: 2020, visitsPerMonth: 10}]->(l);
+
+MATCH (b:User {id: 2}), (l:Location {id: 2})
+CREATE (b)-[:LOCATED_IN {since: 2021, visitsPerMonth: 8}]->(l);
+
+MATCH (c:User {id: 3}), (l:Location {id: 3})
+CREATE (c)-[:LOCATED_IN {since: 2022, visitsPerMonth: 5}]->(l);
+
+MATCH (a:User {id: 1}), (b:User {id: 3})
+CREATE (a)-[:FOLLOWS {since: 2024, strength: 7}]->(b);
+
+
+
+7. User Queries
+1. Find all friends of Alice
+MATCH (:User {name: 'Alice'})-[:FRIENDS_WITH]->(friend)
+RETURN friend.name;
+
+2. List users interested in Hiking
+MATCH (u:User)-[:INTERESTED_IN]->(i:Interest {name: 'Hiking'})
+RETURN u.name;
+
+3. Find mutual friends between Alice and Bob
+MATCH (a:User {name: 'Alice'})-[:FRIENDS_WITH]->(f:User)<-[:FRIENDS_WITH]-(b:User {name: 'Bob'})
+RETURN f.name;
+
+
+4. Count how many users are in each city
+MATCH (u:User)-[:LOCATED_IN]->(l:Location)
+RETURN l.name, count(u) AS userCount;
+
+
+5. Find users with more than 80 interactions in friendships
+MATCH (u1:User)-[f:FRIENDS_WITH]->(u2:User)
+WHERE f.interactionCount > 80
+RETURN u1.name, u2.name, f.interactionCount;
+
+
+6. Use a GDS similarity algorithm to find users similar to Alice
+CALL gds.nodeSimilarity.stream({
+  nodeProjection: 'User',
+  relationshipProjection: {
+    FRIENDS_WITH: {
+      type: 'FRIENDS_WITH',
+      orientation: 'UNDIRECTED'
+    }
+  },
+  similarityCutoff: 0.5
+})
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS u1, gds.util.asNode(node2) AS u2, similarity
+WHERE u1.name = 'Alice'
+RETURN u2.name, similarity
+ORDER BY similarity DESC;
+
+
+7. Find top 3 most followed users
+MATCH (u:User)<-[:FOLLOWS]-(follower)
+RETURN u.name, count(follower) AS followers
+ORDER BY followers DESC LIMIT 3;
+
+
+8. List users and their interests using collect()
+MATCH (u:User)-[:INTERESTED_IN]->(i:Interest)
+RETURN u.name, collect(i.name) AS interests;
